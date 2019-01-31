@@ -1,13 +1,13 @@
 
 var H = require('./header.js');
 
-var list = new H.SkipList(9,4);
+var list = new H.SkipList(7,4);
 var timer = new H.Timer();
 var timer1 = new H.Timer();
 var stdio = new H.stdio();
 var xorShift = H.xorShift;
 
-var length = 2000000;
+var length = 10000;
 var time_elapsed = 0;
 var seconds = 0;
 var count = added = dups = 0;
@@ -37,7 +37,7 @@ while(count != length)
     time_elapsed = timer.end(0);
     if(time_elapsed > seconds)
     {
-        seconds += 0.5;
+        seconds += 1;
         updateStatus();
     }
 }
@@ -77,15 +77,24 @@ stdio.writeAppend(`Fastest linear search: ${setPrecision(linFastest,4)}ms`);
 stdio.writeLine(`Slowest skip search: ${setPrecision(skipSlowest,4)}us`.padEnd(28,' '));
 stdio.writeAppend(' | ');
 stdio.writeAppend(`Slowest linear search: ${setPrecision(linSlowest,4)}ms`);
-// list.destroy();
-// stdio.writeLine(`Press enter to quit`);
+
 stdio.onRead(() =>
 {
+    let parse = (str) =>
+    {
+        let regex = /\b[\w]+\b/ig;
+        let out = arr = []
+        while((arr = regex.exec(str)) !== null)
+        {
+            out.push(arr[0]);
+        }
+        return out;
+    }
     let chunk;
-    while((chunk = stdio.read()) != null)
+    while((chunk = stdio.read()) !== null)
     {
         let n;
-        let input = chunk.toString().split(' ');
+        let input = parse(chunk.toString());
         switch(input[0])
         {
             case 'find':

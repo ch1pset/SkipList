@@ -1,4 +1,8 @@
 
+//A basic implementation of a stack using JS built-in array
+//
+//The main purpose was include a clear() method that would empty the stack and
+//return a copy of the stack
 function Stack()
 {
     var array = [];
