@@ -1,18 +1,19 @@
 
 var H = require('./header.js');
 
-var list = new H.SkipList(7,4);
+var list = new H.SkipList(9,4);
 var timer = new H.Timer();
 var timer1 = new H.Timer();
 var stdio = new H.stdio();
 var xorShift = H.xorShift;
 
-var length = 10000;
+var length = 1000000;
 var time_elapsed = 0;
 var seconds = 0;
 var count = added = dups = 0;
 
 var setPrecision = (n, s) => Number.parseFloat(n).toPrecision(s);
+timer.precision(0);
 
 function updateStatus()
 {
@@ -22,8 +23,8 @@ function updateStatus()
 }
 
 // stdio.writeLine(`Generating list`);
-timer.begin();
 updateStatus();
+timer.begin();
 while(count != length)
 {
     let x = xorShift() % (2 * length);
@@ -34,49 +35,15 @@ while(count != length)
         added++;
     }
     else dups++;
-    time_elapsed = timer.end(0);
+    time_elapsed = timer.lap();
     if(time_elapsed > seconds)
     {
         seconds += 1;
         updateStatus();
     }
 }
+time_elapsed = timer.end();
 updateStatus();
-
-stdio.writeLine(`Starting search tests`);
-
-timer.reset();
-timer1.begin();
-var avg = avg1 = 0;
-var skipFastest = linFastest = 100000;
-var skipSlowest = linSlowest = 0;
-for(let i = 0; i < 100; i++)
-{
-    let r = xorShift() % (2 * length);
-
-    stdio.writeOver(`Searching for ${r}`.padEnd(25, ' '));
-    timer.begin();
-    list.find(node => node.compare(d => d - r));
-    let us = timer.end(2);
-    timer1.begin();
-    list.findLinear(node => node.compare(d => d - r));
-    let t1 = timer1.end(1);
-    avg += us
-    avg1 += t1;
-    skipFastest = (skipFastest < us)?skipFastest:us;
-    skipSlowest = (skipSlowest > us)?skipSlowest:us;
-    linFastest = (linFastest < t1)?linFastest:t1;
-    linSlowest = (linSlowest > t1)?linSlowest:t1;
-}
-stdio.writeOver(`Average skip search: ${setPrecision(avg/100, 4)}us`.padEnd(28, ' '));
-stdio.writeAppend(' | ');
-stdio.writeAppend(`Average linear search: ${setPrecision(avg1/100,4)}ms`);
-stdio.writeLine(`Fastest skip search: ${setPrecision(skipFastest,4)}us`.padEnd(28, ' '));
-stdio.writeAppend(' | ');
-stdio.writeAppend(`Fastest linear search: ${setPrecision(linFastest,4)}ms`);
-stdio.writeLine(`Slowest skip search: ${setPrecision(skipSlowest,4)}us`.padEnd(28,' '));
-stdio.writeAppend(' | ');
-stdio.writeAppend(`Slowest linear search: ${setPrecision(linSlowest,4)}ms`);
 
 stdio.onRead(() =>
 {
@@ -97,25 +64,25 @@ stdio.onRead(() =>
         let input = parse(chunk.toString());
         switch(input[0])
         {
-            case 'find':
+            case 'find': case 'search':
             n = list.find(node => node.compare(d => d - input[1]));
             if(n) stdio.writeLine(`Found ${n.toString()}`);
             else stdio.writeLine(`Not found`);
             break;
-            case 'insert':
+            case 'insert': case 'add':
             n = list.insert(input[1], node => node.compare(d => d - input[1]));
             if(n === 0) stdio.writeLine(`Added`);
             else stdio.writeLine(`Duplicate, not added`);
             break;
-            case 'remove':
+            case 'remove': case 'delete':
             n = list.remove(node => node.compare(d => d - input[1]));
             if(n === 0) stdio.writeLine(`Removed ${input[1]}`);
             else stdio.writeLine(`Not found`);
             break;
-            case 'destroy':
+            case 'destroy': case 'clear':
             list.destroy();
             break;
-            case 'exit': process.exit(0); break;
+            case 'exit': case 'quit': process.exit(0); break;
         }
     }
 });

@@ -5,36 +5,34 @@ var Stack = require('./stack.js');
 function Node(data)
 {
     this.data = data;
-    this.pointers = [null]; //[next, L1_next, L2_next, ..., Ln_next]
+    this.next = []; //[L1_next, L2_next, ..., Ln_next]
+    this.prev = []; //[L1_prev, L2_prev, ..., Ln_prev]
+    this.height = 1;
 
-    this.getHeight = () => this.pointers.length;
-    this.getNext = (level) => {
-        if(this.pointers && level < this.pointers.length)
-            return this.pointers[level];
-        else return null;
-    }
-    this.setNext = (level, node) => this.pointers[level] = node;
     this.elevate = (max_height, probability) =>
     {
         let roll_die = () => xorShift() % probability; //define probability
-        let h = 1;
         //Randomly decide to elevate node
-        while(!roll_die() && h < max_height)
+        while(!roll_die() && this.height < max_height)
         {
-            this.pointers.push(null);
-            h++;
+            this.next.push(null);
+            this.prev.push(null);
+            this.height++;
         }
-        return h;
+        return this.height;
     }
     this.compare = (callback) => callback(this.data);
     this.destroy = () =>
     {
         delete this.data;
-        for(let i in this.pointers)
+        for(let i = 0; i < this.height)
         {
-            delete this.pointers[i];
+            delete this.next[i];
+            delete this.prev[i];
         }
-        delete this.pointers;
+        delete this.next;
+        delete this.prev;
+        delete this.height;
     }
     this.toString = () =>
     {
@@ -54,43 +52,16 @@ function SkipList(max_height, probability)
 {
     //Private variables
     var HEAD = new Node(null);
+    var TAIL = new Node(null);
     var HEIGHT = max_height?max_height:5;
     var PROB = probability?probability:2;
     var STACK = new Stack();
 
-    //initialize HEAD container
-    while(HEAD.pointers.length < HEIGHT) HEAD.pointers.push(null);
-
-    // var SIZE = 0;
-    //Private methods
-    var addToList = (data) =>
+    //initialize HEAD and TAIL
+    for(let h = 0; h <= HEIGHT; h++)
     {
-        let node = new Node(data);
-        let h = node.elevate(HEIGHT, PROB);
-        do
-        {
-            let last = STACK.pop();
-            if(last[1] < h)
-            {
-                node.setNext(last[1], last[0].getNext(last[1]));
-                last[0].setNext(last[1], node);
-            }
-        }
-        while(STACK.length());
-    }
-
-    var delFromList = (node) =>
-    {
-        while(STACK.length())
-        {
-            let last = STACK.pop();
-            let h = node.getHeight();
-            if(last[1] < h)
-            {
-                last[0].setNext(last[1], node.getNext(last[1]));
-            }
-        }
-        node.destroy();
+        HEAD.next.push(TAIL);
+        TAIL.prev.push(HEAD);
     }
 
     //Public methods
@@ -101,100 +72,81 @@ function SkipList(max_height, probability)
     //  result<0: continue traversal of list
     //  result>0: halt traversal of list and drop down a level if possible
     //  result==0: exact match found, halt traversal and return current object
-    this.find = function(callback)
+    this.findR = function(compare, current, level)
     {
-        let cur = HEAD;
+        if(!current)
+        {
+            return this.findR(compare, HEAD.next[HEIGHT - 1], HEIGHT - 1);
+        }
+        else if(current != TAIL)
+        {
+            let result = compare(current.data);
+            if(result === 0) return current;
+            if(result < 0) return this.findR(compare, current.next[level], level);
+            if(result > 0) return level? this.findR(compare, current.next[--level], --level) : null;
+        }
+        else return level? this.findR(compare, current.next[--level], --level) : null;
+    }
+
+    this.add = function(data, compare)
+    {
+        let node = new Node(data);
+
         let level = HEIGHT - 1;
-        STACK.clear();
-        while(cur)
+        let cur = HEAD;
+
+        let setPtrs = (n,p) =>
         {
-            STACK.push([cur,level]);
-            let next = cur.getNext(level);
-            if(next)
-            {
-                let test = callback(next);
-                if(test === 0) //found match
-                {
-                    if(level !== 0) level--;
-                    else return next;
-                }
-                else if(test < 0) //still further
-                {
-                    STACK.pop();
-                    cur = next;
-                }
-                else if(test > 0) //overshot
-                {
-                    if(level !== 0) level--;
-                    else return null;
-                }
-            }
-            else if(level !== 0) level--; //pointing to null, drop or return null
-            else return null;
+            node.setPrev(p, level);
+            node.setNext(n, level);
+            p.setNext(node, level);
+            n.setPrev(node, level);
         }
     }
 
-    this.findLinear = function(callback)
+    this.forEach = function(callback)
     {
         let cur = HEAD;
-        while(cur)
+        let next = cur.next[0];
+        while(next != TAIL)
         {
-            let test = callback(cur);
-            if(test === 0)
-            {
-                return cur;
-            }
-            else if(test < 0)
-            {
-                cur = cur.getNext(0);
-            }
-            else if(test > 0)
-            {
-                return null;
-            }
-            else return null;
+            callback(next);
+            cur = next;
+            next = cur.next[0];
         }
     }
 
-    //insert(data, callback)
-    //
-    //callback should be the same as in find() for consistent behavior
-    //
-    //data anything to be stored within the list
-    this.insert = function(data, callback)
-    {
-        let next = this.find(callback);
-        if(!next) //add if end of list or overshot point
-        {
-            addToList(data);
-            return 0;
-        }
-        else return -1; //do not add duplicates(callback returns 0)
-    }
+    // this.clear = function()
+    // {
+    //     let cur = HEAD;
+    //     while(cur)
+    //     {
+    //         this.remove(node => true);
+    //     }
+    // }
 
-    //remove(callback)
-    //
-    //callback same as find()
-    //
-    this.remove = function(callback)
+    this.toArray = function()
     {
-        let next = this.find(callback);
-        if(next) //delete if exact match found
+        let cur = HEAD;
+        let next = cur.next[0];
+        let out = [];
+        while(next != TAIL)
         {
-            delFromList(next);
-            return 0;
+            out.push(next.data);
+            cur = next;
+            next = cur.next[0];
         }
-        else return -1; //do not delete if no match found
+        return out;
     }
 
     this.toString = function()
     {
-        let cur = HEAD;
+        let cur = HEAD.next[0];
         STACK.clear();
-        while(cur)
+        while(cur != TAIL)
         {
             STACK.push(cur.data);
-            cur = cur.getNext(0);
+            cur = cur.next[0];
         }
         return STACK.clear().join('\n');
     }
@@ -202,10 +154,10 @@ function SkipList(max_height, probability)
     this.destroy = function()
     {
         let cur = HEAD;
-        while(cur)
+        while(cur != TAIL)
         {
             prev = cur;
-            cur = cur.getNext(0);
+            cur = cur.next[0];
             prev.destroy();
         }
         HEAD.destroy();
@@ -213,4 +165,4 @@ function SkipList(max_height, probability)
     }
 }
 
-module.exports = SkipList;
+module.exports = {SkipList,Node};
