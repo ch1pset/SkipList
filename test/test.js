@@ -1,11 +1,11 @@
 
-var H = require('./header.js');
+const {Timer, Rand, SkipList, Node, stdio} = require('./header.js');
 
-var list = new H.SkipList(9,4);
-var timer = new H.Timer();
-var timer1 = new H.Timer();
-var stdio = new H.stdio();
-var xorShift = H.xorShift;
+var list = new SkipList(9,4);
+var timer = new Timer();
+var timer1 = new Timer();
+var console = new stdio();
+var xorShift = Rand;
 
 var length = 1000000;
 var time_elapsed = 0;
@@ -17,18 +17,18 @@ timer.precision(0);
 
 function updateStatus()
 {
-    stdio.writeOver(`Added: ${added}`.padEnd(15, ' '));
-    stdio.writeAppend(`Dups(not added): ${dups}`.padEnd(25,' '));
-    stdio.writeAppend(`Time Elapsed: ${setPrecision(time_elapsed,4)}s`.padEnd(23));
+    console.writeOver(`Added: ${added}`.padEnd(15, ' '));
+    console.writeAppend(`Dups(not added): ${dups}`.padEnd(25,' '));
+    console.writeAppend(`Time Elapsed: ${setPrecision(time_elapsed,4)}s`.padEnd(23));
 }
 
-// stdio.writeLine(`Generating list`);
+// console.writeLine(`Generating list`);
 updateStatus();
 timer.begin();
 while(count != length)
 {
     let x = xorShift() % (2 * length);
-    let r = list.insert(x, node => node.compare(d => d - x));
+    let r = list.insert(x, (d1, d2) => d1 - d2);
     if(r === 0)
     {
         count++;
@@ -45,7 +45,7 @@ while(count != length)
 time_elapsed = timer.end();
 updateStatus();
 
-stdio.onRead(() =>
+console.onRead(() =>
 {
     let parse = (str) =>
     {
@@ -58,26 +58,26 @@ stdio.onRead(() =>
         return out;
     }
     let chunk;
-    while((chunk = stdio.read()) !== null)
+    while((chunk = console.read()) !== null)
     {
         let n;
         let input = parse(chunk.toString());
         switch(input[0])
         {
             case 'find': case 'search':
-            n = list.find(node => node.compare(d => d - input[1]));
-            if(n) stdio.writeLine(`Found ${n.toString()}`);
-            else stdio.writeLine(`Not found`);
+            n = list.find(dat => dat - input[1]);
+            if(n) console.writeLine(`Found ${n.toString()}`);
+            else console.writeLine(`Not found`);
             break;
             case 'insert': case 'add':
-            n = list.insert(input[1], node => node.compare(d => d - input[1]));
-            if(n === 0) stdio.writeLine(`Added`);
-            else stdio.writeLine(`Duplicate, not added`);
+            n = list.insert(input[1], (d1, d2) => d1 - d2);
+            if(n === 0) console.writeLine(`Added`);
+            else console.writeLine(`Duplicate, not added`);
             break;
             case 'remove': case 'delete':
-            n = list.remove(node => node.compare(d => d - input[1]));
-            if(n === 0) stdio.writeLine(`Removed ${input[1]}`);
-            else stdio.writeLine(`Not found`);
+            n = list.remove(dat => dat - input[1]);
+            if(n === 0) console.writeLine(`Removed ${input[1]}`);
+            else console.writeLine(`Not found`);
             break;
             case 'destroy': case 'clear':
             list.destroy();

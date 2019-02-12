@@ -1,6 +1,5 @@
 
 var xorShift = require('./rand.js');
-var Stack = require('./stack.js');
 
 function Node(data)
 {
@@ -25,7 +24,7 @@ function Node(data)
     this.destroy = () =>
     {
         delete this.data;
-        for(let i = 0; i < this.height)
+        for(let i = 0; i < this.height; i++)
         {
             delete this.next[i];
             delete this.prev[i];
@@ -55,7 +54,7 @@ function SkipList(max_height, probability)
     var TAIL = new Node(null);
     var HEIGHT = max_height?max_height:5;
     var PROB = probability?probability:2;
-    var STACK = new Stack();
+    var STACK = [];
 
     //initialize HEAD and TAIL
     for(let h = 0; h <= HEIGHT; h++)
@@ -69,39 +68,58 @@ function SkipList(max_height, probability)
     //Find(callback)
     //
     //callback is a function that should return one of three outcomes:
+    //  result==0: exact match found, halt traversal and return current object
     //  result<0: continue traversal of list
     //  result>0: halt traversal of list and drop down a level if possible
-    //  result==0: exact match found, halt traversal and return current object
     this.findR = function(compare, current, level)
     {
-        if(!current)
-        {
-            return this.findR(compare, HEAD.next[HEIGHT - 1], HEIGHT - 1);
-        }
+        if(!current) return this.findR(compare, HEAD.next[HEIGHT - 1], HEIGHT - 1);
         else if(current != TAIL)
         {
             let result = compare(current.data);
             if(result === 0) return current;
-            if(result < 0) return this.findR(compare, current.next[level], level);
-            if(result > 0) return level? this.findR(compare, current.next[--level], --level) : null;
+            else if(result < 0) return this.findR(compare, current.next[level], level);
         }
-        else return level? this.findR(compare, current.next[--level], --level) : null;
+        return level? this.findR(compare, current.next[--level], --level) : null;
     }
 
-    this.add = function(data, compare)
+    this.insert = function(data, compare)
     {
-        let node = new Node(data);
-
-        let level = HEIGHT - 1;
-        let cur = HEAD;
-
-        let setPtrs = (n,p) =>
+        let algo = function(node, callback, current, level)
         {
-            node.setPrev(p, level);
-            node.setNext(n, level);
-            p.setNext(node, level);
-            n.setPrev(node, level);
+            if(!current) return algo(node, callback, HEAD.next[HEIGHT - 1], HEIGHT - 1);
+            else if(current != TAIL)
+            {
+                let result = callback(current.data, node.data);
+                if(result === 0) return null; //already exists
+                else if(result < 0) return algo(node, callback, current.next[level], level);
+            }
+            if(level < node.height)
+            {
+                let prev = current.prev[level];
+                node.prev[level] = prev;
+                node.next[level] = current;
+                prev.next[level] = node;
+                current.prev[level] = node;
+            }
+            return level? algo(node, callback, current.next[--level], --level) : current.prev[level];
         }
+        let node = new Node(data);
+        node.elevate(HEIGHT, PROB);
+        return algo(node, compare);
+    }
+
+    this.remove = function(compare)
+    {
+        let node = this.findR(compare, HEAD.next[HEIGHT - 1], HEIGHT - 1);
+        for(let level = 0; level < node.height; level++)
+        {
+            let prev = node.prev[level];
+            let next = node.next[level];
+            prev.next[level] = next;
+            next.prev[level] = prev;
+        }
+        node.destroy();
     }
 
     this.forEach = function(callback)
@@ -142,13 +160,13 @@ function SkipList(max_height, probability)
     this.toString = function()
     {
         let cur = HEAD.next[0];
-        STACK.clear();
+        STACK = [];
         while(cur != TAIL)
         {
             STACK.push(cur.data);
             cur = cur.next[0];
         }
-        return STACK.clear().join('\n');
+        return STACK.join('\n');
     }
 
     this.destroy = function()
@@ -161,7 +179,7 @@ function SkipList(max_height, probability)
             prev.destroy();
         }
         HEAD.destroy();
-        STACK.destroy();
+        delete STACK;
     }
 }
 
